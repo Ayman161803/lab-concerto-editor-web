@@ -1,6 +1,7 @@
 import React, { Fragment, useEffect, useState } from 'react';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as Yup from 'yup';
+import  DeleteIcon  from '@mui/icons-material/Delete';
 
 import { useForm, Controller } from 'react-hook-form';
 import {
@@ -211,6 +212,9 @@ const ConceptPropertyPage = ({ model, concept, property }: { model: IModel, conc
                             onClick={handleSubmit(onSubmit)}
                         >
                             Save
+                        </Button>
+                        <Button variant="outlined" style={{"marginLeft":"3%"}} color="secondary" startIcon={<DeleteIcon />}>
+                            Delete
                         </Button>
                     </Box>
                 </Box>

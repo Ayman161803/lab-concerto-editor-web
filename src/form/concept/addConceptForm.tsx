@@ -41,7 +41,7 @@ const AddDeclarationForm = ({ active, onClose }: { active: boolean, onClose: (a:
     });
 
     const currNamespace = useStore(state => state.editorNamespace) as IModel;
-    const defaultDeclarationName = `declaration${currNamespace.declarations?.length}`;
+    const defaultDeclarationName = `declaration${currNamespace?.declarations?.length}`;
     const AddDeclarationFromData = useStore(state => state.addDeclarationFromData)
 
     const onSubmit = async (newDeclarationData: AddDeclarationFormData) => {
