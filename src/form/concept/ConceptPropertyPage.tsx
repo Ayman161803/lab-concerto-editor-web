@@ -1,6 +1,7 @@
-import React, { Fragment, useEffect } from 'react';
+import React, { Fragment, useEffect, useState } from 'react';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as Yup from 'yup';
+import  DeleteIcon  from '@mui/icons-material/Delete';
 
 import { useForm, Controller } from 'react-hook-form';
 import {
@@ -17,18 +18,24 @@ import {
 import useStore from '../../store';
 import { IProperty, IConceptDeclaration, IModel } from '../../metamodel/concerto.metamodel';
 
+import { isObjectOrRelationshipProperty, isBooleanProperty, isNumericProperty } from '../../modelUtil';
+
 const ConceptPropertyPage = ({ model, concept, property }: { model: IModel, concept: IConceptDeclaration, property: IProperty }) => {
 
     const conceptPropertyUpdated = useStore(state => state.conceptPropertyUpdated);
 
     const validationSchema = Yup.object().shape({
         name: Yup.string().required('Name is required'),
+        defaultValue: Yup.string(),
+        lowerLimit: Yup.number(),
+        upperLimit: Yup.number(),
         isArray: Yup.bool().oneOf([false, true], 'Array is required')
     });
 
     const {
         register,
         reset,
+        setValue,
         control,
         handleSubmit,
         formState: { errors }
@@ -38,19 +45,75 @@ const ConceptPropertyPage = ({ model, concept, property }: { model: IModel, conc
 
     useEffect(() => {
         reset(property);
-    }, [property, reset]);
+
+        if (!!!property.name) {
+            setValue('name', '');
+        }
+
+        if (!!!property.defaultValue) {
+            setValue('defaultValue', '');
+        }
+
+        if (!!!property.validator?.lower) {
+            setValue('validator.lower', undefined);
+        }
+
+        if (!!!property.validator?.upper) {
+            setValue('validator.upper', undefined);
+        }
+    }, [property, reset, setValue]);
 
     const onSubmit = (data: any) => {
+        if (data.defaultValue) {
+            if (isNumericProperty(property)) {
+                data.defaultValue = data.defaultValue ? Number(data.defaultValue) : null;
+            }
+            else if (isBooleanProperty(property)) {
+                if (data.defaultValue == "true" || data.defaultValue == "false") {
+                    data.defaultValue = (data.defaultValue == "true")
+                }
+            }
+        }
+        if (data.validator) {
+            if (!data.validator.lower && !data.validator.upper) {
+                data.validator = null;
+            }
+            else if (isNumericProperty(property)){
+                data.validator = {
+                    lower : data.validator.lower ? Number(data.validator.lower) : null,
+                    upper : data.validator.upper ? Number(data.validator.upper) : null,
+                };
+                if (data.validator.lower && data.validator.upper && data.validator.lower > data.validator.upper) {
+                    data.validator = null;
+                }
+            }
+            else {
+                data.validator = null;
+            }
+        }
+
+        if (isNumericProperty(property) && data.validator && data.defaultValue) {
+            if (data.validator.lower && data.defaultValue < data.validator.lower) {
+                data.validator = null;
+                data.defaultValue = null;
+            }
+            else if (data.validator.upper && data.defaultValue > data.validator.upper) {
+                data.validator = null;
+                data.defaultValue = null;
+            }
+        }
+
         const newData = {
             ...property,
             ...data
         }
+        console.log(newData);
         conceptPropertyUpdated(model.namespace, concept.name, property.name, newData);
     };
 
     return (
         <Fragment>
-            <Paper>
+            <Paper style={{"padding":"3%"}}>
                 <Box px={3} py={2}>
                     <Typography variant="h6">
                         Edit Property
@@ -71,33 +134,49 @@ const ConceptPropertyPage = ({ model, concept, property }: { model: IModel, conc
                                 {errors.name?.message?.toString()}
                             </Typography>
                         </Grid>
-                        <Grid item xs={12}>
-                            <FormControlLabel
-                                control={
-                                    <Controller
-                                        name='isOptional'
-                                        control={control}
-                                        defaultValue={!!property.isOptional}
-                                        render={({ field }) => (
-                                            <Checkbox
-                                                {...field}
-                                                checked={!!field.value} 
-                                                onChange={(e) => field.onChange(e.target.checked)}
-                                            />
-                                        )}
-                                    />
-                                }
-                                label={
-                                    <Typography color={errors.isOptional ? 'error' : 'inherit'}>
-                                        Is an optional property?
-                                    </Typography>
-                                }
+                        <Grid item xs={12} sm={12}>
+                            <TextField
+                                id="defaultValue"
+                                label="defaultValue"
+                                defaultValue={property.defaultValue}
+                                fullWidth
+                                margin="dense"
+                                disabled={isObjectOrRelationshipProperty(property)}
+                                {...register('defaultValue')}
+                                error={errors.defaultValue ? true : false}
                             />
-                            <br />
                             <Typography variant="inherit" color="textSecondary">
-                                {errors.isOptional
-                                    ? '(' + errors.isOptional.message + ')'
-                                    : ''}
+                                {errors.defaultValue?.message?.toString()}
+                            </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={12}>
+                            <TextField
+                                id="lowerLimit"
+                                label="lowerLimit"
+                                defaultValue={property.validator?.lower}
+                                fullWidth
+                                margin="dense"
+                                disabled={!isNumericProperty(property)}
+                                {...register('validator.lower')}
+                                error={errors.validator?.lower ? true : false}
+                            />
+                            <Typography variant="inherit" color="textSecondary">
+                                {errors.validator?.lower?.message?.toString()}
+                            </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={12}>
+                            <TextField
+                                id="uppperLimit"
+                                label="uppperLimit"
+                                defaultValue={property.validator?.upper}
+                                fullWidth
+                                margin="dense"
+                                disabled={!isNumericProperty(property)}
+                                {...register('validator.upper')}
+                                error={errors.validator?.upper ? true : false}
+                            />
+                            <Typography variant="inherit" color="textSecondary">
+                                {errors.validator?.upper?.message?.toString()}
                             </Typography>
                         </Grid>
                         <Grid item xs={12}>
@@ -137,6 +216,9 @@ const ConceptPropertyPage = ({ model, concept, property }: { model: IModel, conc
                             onClick={handleSubmit(onSubmit)}
                         >
                             Save
+                        </Button>
+                        <Button variant="outlined" style={{"marginLeft":"3%"}} color="secondary" startIcon={<DeleteIcon />}>
+                            Delete
                         </Button>
                     </Box>
                 </Box>
